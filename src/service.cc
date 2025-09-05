@@ -415,7 +415,24 @@ Status Service::genotype_sites(const genotyper_config& cfg, const string& sample
             abort = true;
         }
         results_retrieved++;
+
+        // show progress bar, updating every 100 sites or on the last site
+        if ((i + 1) % 100 == 0 || (i + 1) == sites.size()) {
+            const int BAR_WIDTH = 50;
+            float progress = (float)(i + 1) / sites.size();
+            int bar_position = BAR_WIDTH * progress;
+
+            std::cerr << "[";
+            for (int j = 0; j < BAR_WIDTH; ++j) {
+                if (j < bar_position) std::cerr << "=";
+                else if (j == bar_position) std::cerr << ">";
+                else std::cerr << " ";
+            }
+            std::cerr << "] " << int(progress * 100.0) << " % (" << (i+1) << "/" << sites.size() << ")\r";
+            std::cerr.flush();
+        }
     }
+    std::cerr << std::endl;
     if (s.bad()) {
         return s;
     }

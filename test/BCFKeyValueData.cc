@@ -139,6 +139,10 @@ namespace KeyValueMem {
             return Status::OK();
         }
 
+        Status CreateCheckpoint(const std::string& checkpoint_dir) override {
+            return Status::NotImplemented("KeyValueMem::DB does not support CreateCheckpoint");
+        }
+
         void wipe() {
             collections_.clear();
             data_.clear();

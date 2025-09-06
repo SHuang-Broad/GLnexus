@@ -136,18 +136,22 @@ ExternalProject_Get_Property(CTPL source_dir)
 set(CTPL_INCLUDE_DIR ${source_dir})
 include_directories(${CTPL_INCLUDE_DIR})
 
-ExternalProject_Add(fcmm
-    URL https://github.com/giacomodrago/fcmm/archive/v1.0.1.zip
+# TBB
+ExternalProject_Add(tbb
+    URL https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.2.0.tar.gz
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/external
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
+    # Configure TBB's cmake build. We want a static library, and we don't need the tests.
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/external -DTBB_TEST=OFF -DBUILD_SHARED_LIBS=OFF
+    # After build, install it to the prefix.
+    INSTALL_COMMAND make install
     LOG_DOWNLOAD ON
-  )
-ExternalProject_Get_Property(fcmm source_dir)
-set(FCMM_INCLUDE_DIR ${source_dir})
-include_directories(${FCMM_INCLUDE_DIR})
+    LOG_BUILD ON
+)
+# Define the imported library target for TBB
+add_library(libtbb STATIC IMPORTED)
+set(LIBTBB_A ${CMAKE_BINARY_DIR}/external/lib/libtbb.a)
+set_property(TARGET libtbb PROPERTY IMPORTED_LOCATION ${LIBTBB_A})
+include_directories(${CMAKE_BINARY_DIR}/external/include)
 
 ExternalProject_Add(spdlog
     URL https://github.com/gabime/spdlog/archive/v1.8.2.tar.gz
@@ -174,7 +178,7 @@ ExternalProject_Add(capnp
 
 execute_process(COMMAND git describe --tags --long --dirty --always
                 OUTPUT_VARIABLE GIT_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGIT_REVISION=\"\\\"${GIT_REVISION}\\\"\" -pthread -std=c++14 -Wall -Werror=return-type -Werror=unused-result -Wno-sign-compare -Wno-write-strings -Wno-terminate -fdiagnostics-color=auto -march=ivybridge")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGIT_REVISION=\"\\\"${GIT_REVISION}\"\" -pthread -std=c++14 -Wall -Werror=return-type -Werror=unused-result -Wno-sign-compare -Wno-write-strings -Wno-terminate -fdiagnostics-color=auto -march=ivybridge")
 set(CMAKE_CXX_FLAGS_RELEASE "-gdwarf -DNDEBUG -O3")
 
 ################################
@@ -217,7 +221,7 @@ add_dependencies(glnexus htslib)
 add_dependencies(glnexus rocksdb)
 add_dependencies(glnexus yaml-cpp)
 add_dependencies(glnexus CTPL)
-add_dependencies(glnexus fcmm)
+add_dependencies(glnexus tbb)
 add_dependencies(glnexus spdlog)
 add_dependencies(glnexus capnp)
 add_library(libglnexus ALIAS glnexus)
@@ -226,7 +230,8 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -march=ivybridge -static-l
 
 add_executable(glnexus_cli cli/glnexus_cli.cc)
 add_dependencies(glnexus_cli libglnexus)
-target_link_libraries(glnexus_cli glnexus libhts librocksdb libyaml-cpp libz.a libsnappy.a libbz2.a libzstd.a liblzma.a librt.a libcapnp.a libkj.a)
+target_link_libraries(glnexus_cli glnexus libhts librocksdb libyaml-cpp libtbb libz.a libsnappy.a libbz2.a libzstd.a liblzma.a librt.a libcapnp.a libkj.a)
+
 
 install(TARGETS glnexus_cli DESTINATION bin)
 

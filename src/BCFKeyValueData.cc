@@ -12,7 +12,7 @@
 #include <thread>
 #include <mutex>
 #include <sys/time.h>
-#include "fcmm.hpp"
+#include "tbb/concurrent_hash_map.h"
 #include "khash.h"
 #include <regex>
 #include <endian.h>
@@ -50,11 +50,14 @@ struct ActiveMetadata {
 // std::hash<string> using the string hash function from htslib
 class KStringHash {
 public:
-    std::size_t operator()(string const& s) const  {
+    static size_t hash(const string& s) {
         return (size_t) kh_str_hash_func(s.c_str());
     }
+    static bool equal(const string& s1, const string& s2) {
+        return s1 == s2;
+    }
 };
-using BCFHeaderCache = fcmm::Fcmm<string,shared_ptr<const bcf_hdr_t>,hash<string>,KStringHash>;
+using BCFHeaderCache = tbb::concurrent_hash_map<string,shared_ptr<const bcf_hdr_t>,KStringHash>;
 // this is not a hard limit but the FCMM performance degrades if it's too low
 const size_t BCF_HEADER_CACHE_SIZE = 65536;
 
@@ -409,10 +412,10 @@ shared_ptr<StatsRangeQuery> BCFKeyValueData::getRangeStats() {
 
 Status BCFKeyValueData::dataset_header(const string& dataset,
                                        shared_ptr<const bcf_hdr_t>* hdr) {
-    auto cached = body_->header_cache->end();
-    if ((cached = body_->header_cache->find(dataset)) != body_->header_cache->end()) {
+    BCFHeaderCache::const_accessor accessor;
+    if (body_->header_cache->find(accessor, dataset)) {
         // Return memoized header
-        *hdr = cached->second;
+        *hdr = accessor->second;
         assert(hdr);
         return Status::OK();
     }

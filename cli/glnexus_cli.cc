@@ -18,6 +18,10 @@
 #include "spdlog/sinks/stdout_sinks.h"
 #include "cli_utils.h"
 
+// https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
+#define STRINGIFY(x) #x
+#define MACRO_TO_STRING(x) STRINGIFY(x)
+
 using namespace std;
 
 auto console = spdlog::stderr_logger_mt("GLnexus");
@@ -112,7 +116,9 @@ static int all_steps(const vector<string> &vcf_files,
         H("bulk load into DB",
           GLnexus::cli::utils::db_bulk_load(console, mem_budget, nr_threads, vcf_files, dbpath, ranges, contigs, &db, false));
     } else {
-        H("open database", GLnexus::RocksKeyValue::DB::Open(dbpath, &db, nr_threads));
+        GLnexus::RocksKeyValue::config cfg;
+        cfg.thread_budget = nr_threads;
+        H("open database", GLnexus::RocksKeyValue::Open(dbpath, cfg, db));
     }
     assert(db);
 
@@ -257,7 +263,7 @@ int main(int argc, char *argv[]) {
     #else
     #define BUILD_CONFIG "debug"
     #endif
-    console->info("glnexus_cli {} {} {}", BUILD_CONFIG, GIT_REVISION, __DATE__);
+    console->info("glnexus_cli {} {} {}", BUILD_CONFIG, MACRO_TO_STRING(GIT_REVISION), __DATE__);
     GLnexus::cli::utils::detect_jemalloc(console);
 
     if (argc < 2) {
